@@ -36,13 +36,13 @@ class DentaBot extends ActivityHandler {
                 LuisResult.entities.$instance.availability && 
                 LuisResult.entities.$instance.availability[0]
             ) {
-                const date = "today";
+                let date = "today";
                 if(LuisResult.entities.$instance.date)
                     date = LuisResult.entities.$instance?.date[0].text;
                 // call api to view availability
                 // An improvement is to parse the date from natural language ('today','tomorrow')
                 // and send the selected date to get times for specific day.
-                const availableAppointments  = DentistScheduler.getAvailability();
+                const availableAppointments = await this.DentistScheduler.getAvailability(date);
                 await context.sendActivity(availableAppointments);
                 await next();
                 return;
@@ -56,7 +56,7 @@ class DentaBot extends ActivityHandler {
             ) {
                 const time = LuisResult.entities.$instance.time[0];
                 // call api to schedule appointment at selected time
-                const scheduledAppointment  = DentistScheduler.scheduleAppointment();
+                const scheduledAppointment = await this.DentistScheduler.scheduleAppointment(time);
                 const message = scheduledAppointment ? `Appointment was scheduled at ${time}` : "We could not schedule your appointment. Please try again."
                 await context.sendActivity(message);
                 await next();
