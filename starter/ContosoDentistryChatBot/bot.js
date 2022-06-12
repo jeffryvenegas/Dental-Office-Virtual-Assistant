@@ -54,7 +54,7 @@ class DentaBot extends ActivityHandler {
                 LuisResult.entities.$instance.time && 
                 LuisResult.entities.$instance.time[0]
             ) {
-                const time = LuisResult.entities.$instance.time[0];
+                const time = LuisResult.entities.$instance.time[0].text;
                 // call api to schedule appointment at selected time
                 const scheduledAppointment = await this.DentistScheduler.scheduleAppointment(time);
                 const message = scheduledAppointment ? `Appointment was scheduled at ${time}` : "We could not schedule your appointment. Please try again."
