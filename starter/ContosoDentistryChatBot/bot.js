@@ -11,22 +11,57 @@ class DentaBot extends ActivityHandler {
     constructor(configuration, qnaOptions) {
         // call the parent constructor
         super();
-        if (!configuration) throw new Error('[QnaMakerBot]: Missing parameter. configuration is required');
+        if (!configuration) throw new Error('[QnaMakerBot]: Missing parameter. configuration is required')
 
         // create a QnAMaker connector
         this.QnAMaker = new QnAMaker(configuration.QnAConfiguration, qnaOptions)
        
         // create a DentistScheduler connector
-      
+        this.DentistScheduler = new DentistScheduler(configuration.SchedulerConfiguration)
+        
         // create a IntentRecognizer connector
-
+        this.IntentRecognizer = new IntentRecognizer(configuration.LuisConfiguration)
 
         this.onMessage(async (context, next) => {
             // Send user input to QnA Maker
             const qnaResults = await this.QnAMaker.getAnswers(context);
+
+            // send user input to LUIS
+            const LuisResult = await this.intentRecognizer.executeLuisQuery(context);
+            
+            // Determine which service to respond with //
+            if (LuisResult.luisResult.prediction.topIntent === "getAvailability" &&
+                LuisResult.intents.getAvailability.score > .6 &&
+                LuisResult.entities.$instance && 
+                LuisResult.entities.$instance.datetime && 
+                LuisResult.entities.$instance.datetime[0]
+            ) {
+                const datetime = LuisResult.entities.$instance.datetime[0].text;
+                // call api to view availability
+                // An improvement is to send the selected date to get times for specific day.
+                const availableAppointments  = DentistScheduler.getAvailability();
+                await context.sendActivity(availableAppointments);
+                await next();
+                return;
+            }
+
+            if (LuisResult.luisResult.prediction.topIntent === "scheduleAppointment" &&
+                LuisResult.intents.scheduleAppointment.score > .6 &&
+                LuisResult.entities.$instance && 
+                LuisResult.entities.$instance.time && 
+                LuisResult.entities.$instance.time[0]
+            ) {
+                const time = LuisResult.entities.$instance.time[0];
+                // call api to schedule appointment at selected time
+                const scheduledAppointment  = DentistScheduler.scheduleAppointment();
+                const message = scheduledAppointment ? `Appointment was scheduled at ${time}` : "We could not schedule your appointment. Please try again."
+                await context.sendActivity(message);
+                await next();
+                return;
+            }
+
             // If an answer was received from QnA Maker, send the answer back to the user.
-            if (qnaResults[0]) {
-                console.log(qnaResults[0])
+            else if (qnaResults && qnaResults[0]) {
                 await context.sendActivity(`${qnaResults[0].answer}`);
             }
             else {
@@ -40,7 +75,7 @@ class DentaBot extends ActivityHandler {
 
         this.onMembersAdded(async (context, next) => {
         const membersAdded = context.activity.membersAdded;
-        const welcomeText = 'Welcome to Contoso Dentistry. I can help you see our availability for an appointment. You can say "Show me available dates next week"';
+        const welcomeText = 'Welcome to Contoso Dentistry. I can help you see our availability and schedule an appointment. You can say "Show me available dates for tomorrow"';
         for (let cnt = 0; cnt < membersAdded.length; ++cnt) {
             if (membersAdded[cnt].id !== context.activity.recipient.id) {
                 await context.sendActivity(MessageFactory.text(welcomeText, welcomeText));
