@@ -27,26 +27,29 @@ class DentaBot extends ActivityHandler {
             const qnaResults = await this.QnAMaker.getAnswers(context);
 
             // send user input to LUIS
-            const LuisResult = await this.intentRecognizer.executeLuisQuery(context);
-            
+            const LuisResult = await this.IntentRecognizer.executeLuisQuery(context);
+
             // Determine which service to respond with //
-            if (LuisResult.luisResult.prediction.topIntent === "getAvailability" &&
-                LuisResult.intents.getAvailability.score > .6 &&
+            if (LuisResult.luisResult.prediction.topIntent === "GetAvailability" &&
+                LuisResult.intents.GetAvailability.score > .6 &&
                 LuisResult.entities.$instance && 
-                LuisResult.entities.$instance.datetime && 
-                LuisResult.entities.$instance.datetime[0]
+                LuisResult.entities.$instance.availability && 
+                LuisResult.entities.$instance.availability[0]
             ) {
-                const datetime = LuisResult.entities.$instance.datetime[0].text;
+                const date = "today";
+                if(LuisResult.entities.$instance.date)
+                    date = LuisResult.entities.$instance?.date[0].text;
                 // call api to view availability
-                // An improvement is to send the selected date to get times for specific day.
+                // An improvement is to parse the date from natural language ('today','tomorrow')
+                // and send the selected date to get times for specific day.
                 const availableAppointments  = DentistScheduler.getAvailability();
                 await context.sendActivity(availableAppointments);
                 await next();
                 return;
             }
 
-            if (LuisResult.luisResult.prediction.topIntent === "scheduleAppointment" &&
-                LuisResult.intents.scheduleAppointment.score > .6 &&
+            if (LuisResult.luisResult.prediction.topIntent === "ScheduleAppointment" &&
+                LuisResult.intents.ScheduleAppointment.score > .6 &&
                 LuisResult.entities.$instance && 
                 LuisResult.entities.$instance.time && 
                 LuisResult.entities.$instance.time[0]
@@ -75,7 +78,7 @@ class DentaBot extends ActivityHandler {
 
         this.onMembersAdded(async (context, next) => {
         const membersAdded = context.activity.membersAdded;
-        const welcomeText = 'Welcome to Contoso Dentistry. I can help you see our availability and schedule an appointment. You can say "Show me available dates for tomorrow"';
+        const welcomeText = 'Welcome to Contoso Dentistry. I can help you see our availability and schedule an appointment. You can say "Show me available spaces for tomorrow"';
         for (let cnt = 0; cnt < membersAdded.length; ++cnt) {
             if (membersAdded[cnt].id !== context.activity.recipient.id) {
                 await context.sendActivity(MessageFactory.text(welcomeText, welcomeText));
